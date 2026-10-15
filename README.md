@@ -2,6 +2,8 @@
 
 免登录、数据保存在当前浏览器的个人国策树 PWA。支持 iPhone Safari 添加到主屏幕、离线使用和 JSON 备份。
 
+[打开应用 / Open app](https://willowkk.github.io/policy-tree-safari/)
+
 [中文使用说明](README_CN.md) · [English guide](README_EN.md)
 
 国策和复盘内容不上传至服务器。每位访问者使用自己的本地数据；手机和电脑不自动同步。请定期导出备份。

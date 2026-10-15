@@ -4,7 +4,7 @@
 
 This is a responsive PWA with no login. Policies and history stay in the current browser on your device. You can export and import JSON backups. The app does not upload policy data or require a cloud sync database, ChatGPT, QQ, or WeChat login.
 
-Published URL: [Open Policy Tree](https://policy-tree-local.rubyberry65.chatgpt.site).
+Published URL: [Open Policy Tree](https://willowkk.github.io/policy-tree-safari/).
 
 ## Use it on iPhone
 
@@ -78,4 +78,4 @@ npm run preview
 
 The production build creates static files in `dist/`, suitable for HTTPS static hosting. Offline caching uses a Service Worker. The development server does not represent production offline behavior; verify the built preview and actual HTTPS deployment. Opening `dist/index.html` directly from the file system is not the installation path.
 
-This directory is the current main version. `../web/` and `../wechat/` retain historical implementations. 44 automated tests pass. Creation, activation, reload and offline startup after stopping the server have been checked in a desktop browser. System sharing and Home Screen installation have not yet been tested on a physical iPhone.
+This directory is the current main version. `../web/` and `../wechat/` retain historical implementations. 51 automated tests pass. Creation, activation, reload and offline startup after stopping the server have been checked in a desktop browser. System sharing and Home Screen installation have not yet been tested on a physical iPhone.
