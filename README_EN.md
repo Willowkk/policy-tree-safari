@@ -6,6 +6,12 @@ This is a responsive PWA with no login. Policies and history stay in the current
 
 Published URL: [Open Policy Tree](https://willowkk.github.io/policy-tree-safari/).
 
+## Moving from the previous URL
+
+Different origins have separate local storage. Export JSON from the old browser or Home Screen entry first. Open the new URL, add it to the Home Screen, then import the backup from the new entry. Check policies and history before using the new icon daily; the old icon continues to open the previous URL.
+
+Friends use independent data on their own devices and cannot see your policies. GitHub Pages hosting is free, but mainland China availability needs actual network testing and is not guaranteed across providers or regions.
+
 ## Use it on iPhone
 
 1. Connect to the internet and open the published URL in Safari.
@@ -78,4 +84,4 @@ npm run preview
 
 The production build creates static files in `dist/`, suitable for HTTPS static hosting. Offline caching uses a Service Worker. The development server does not represent production offline behavior; verify the built preview and actual HTTPS deployment. Opening `dist/index.html` directly from the file system is not the installation path.
 
-This directory is the current main version. `../web/` and `../wechat/` retain historical implementations. 51 automated tests pass. Creation, activation, reload and offline startup after stopping the server have been checked in a desktop browser. System sharing and Home Screen installation have not yet been tested on a physical iPhone.
+This directory is the current main version. `../web/` and `../wechat/` retain historical implementations. 56 automated tests pass. Creation, activation, reload and offline startup after stopping the server have been checked in a desktop browser. System sharing and Home Screen installation have not yet been tested on a physical iPhone.
