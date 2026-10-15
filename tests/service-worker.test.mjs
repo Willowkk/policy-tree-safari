@@ -5,10 +5,18 @@ import vm from 'node:vm';
 
 const origin = 'https://policy-tree.test';
 const assets = ['/', '/assets/app.js', '/assets/app.css', '/icon.svg'];
-const release = 'policy-tree-local-test';
+const cachePrefix = 'policy-tree-local-root-';
+const release = cachePrefix + 'test';
 const template = readFileSync(new URL('../src/service-worker.template.js', import.meta.url), 'utf8');
-const code = template.replace('__RELEASE__', JSON.stringify(release)).replace('__PRECACHE__', JSON.stringify(assets));
 function setup(overrides = {}) {
+  const base = overrides.base ?? '/';
+  const prefix = overrides.cachePrefix ?? cachePrefix;
+  const currentRelease = prefix + 'test';
+  const currentAssets = overrides.assets ?? assets;
+  const code = template.replace('__RELEASE__', JSON.stringify(currentRelease))
+    .replace('__CACHE_PREFIX__', JSON.stringify(prefix))
+    .replace('__BASE__', JSON.stringify(base))
+    .replace('__PRECACHE__', JSON.stringify(currentAssets));
   const handlers = {};
   const buckets = new Map();
   const fetched = [];
@@ -79,14 +87,16 @@ test('an uncached permitted asset falls back to the network', async () => {
   const env = setup();
   assert.equal(await (await env.request('/assets/app.js')).text(), 'body:/assets/app.js');
 });
-test('activation removes only older Policy Tree local caches', async () => {
+test('activation removes only older caches for the same deployment path', async () => {
   const env = setup();
-  env.buckets.set('policy-tree-local-old', new Map());
+  env.buckets.set(cachePrefix + 'old', new Map());
   env.buckets.set(release, new Map());
+  env.buckets.set('policy-tree-local-another-path-old', new Map());
   env.buckets.set('another-app-cache', new Map());
   await env.lifecycle('activate');
-  assert.ok(!env.buckets.has('policy-tree-local-old'));
+  assert.ok(!env.buckets.has(cachePrefix + 'old'));
   assert.ok(env.buckets.has(release));
+  assert.ok(env.buckets.has('policy-tree-local-another-path-old'));
   assert.ok(env.buckets.has('another-app-cache'));
   assert.equal(env.claimed(), 1);
 });
@@ -104,4 +114,38 @@ test('install rejects a redirect rather than caching a sign-in response', async 
 test('install rejects HTML in place of a JavaScript module', async () => {
   const env = setup({ fetch: async () => new Response('<html>error</html>', { headers: { 'content-type': 'text/html' } }) });
   await assert.rejects(env.lifecycle('install'), /Invalid script/);
+});
+
+const subpath = '/policy-tree-safari/';
+const subpathAssets = [subpath, subpath + 'assets/app.js', subpath + 'assets/app.css', subpath + 'icon.svg'];
+const subpathOptions = { base: subpath, cachePrefix: 'policy-tree-local-project-', assets: subpathAssets };
+
+test('a project hosted under a subpath installs and opens its shell and modules offline', async () => {
+  const env = setup(subpathOptions);
+  await env.lifecycle('install');
+  assert.deepEqual(env.fetched.map(request => new URL(request.url).pathname), subpathAssets);
+  const count = env.fetched.length;
+  for (const path of subpathAssets) {
+    assert.equal(await (await env.request(path)).text(), 'body:' + path);
+  }
+  assert.equal(env.fetched.length, count);
+  for (const path of ['/', '/assets/app.js', subpath + 'index.html', subpath + 'api/state', subpath + '?query=value', 'https://other.test' + subpath]) {
+    assert.equal(await env.request(path), undefined);
+  }
+  assert.equal(await env.request(subpath, { method: 'POST', body: 'private data' }), undefined);
+});
+
+test('a subpath directory shell must contain HTML', async () => {
+  const env = setup({ ...subpathOptions, assets: [subpath], fetch: async () => new Response('{}', { headers: { 'content-type': 'application/json' } }) });
+  await assert.rejects(env.lifecycle('install'), /Invalid application shell/);
+});
+
+test('updating a subpath installation preserves root and other project caches', async () => {
+  const env = setup(subpathOptions);
+  for (const key of ['policy-tree-local-project-old', 'policy-tree-local-project-test', release, 'policy-tree-local-other-project-old']) {
+    env.buckets.set(key, new Map());
+  }
+  await env.lifecycle('activate');
+  assert.deepEqual([...env.buckets.keys()], ['policy-tree-local-project-test', release, 'policy-tree-local-other-project-old']);
+  assert.equal(env.skipped(), 0);
 });

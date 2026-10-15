@@ -23,7 +23,8 @@ if (import.meta.env.PROD && "serviceWorker" in navigator && window.isSecureConte
     if (registration?.waiting) announce();
     if (registration?.active) announceReady();
   });
-  void navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" })
+  const base = import.meta.env.BASE_URL;
+  void navigator.serviceWorker.register(base + "sw.js", { scope: base, updateViaCache: "none" })
     .then((reg) => {
       registration = reg;
       if (reg.waiting) announce();
