@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const origin = 'https://policy-tree.test';
-const assets = ['/', '/index.html', '/assets/app.js', '/assets/app.css', '/icon.svg'];
+const assets = ['/', '/assets/app.js', '/assets/app.css', '/icon.svg'];
 const release = 'policy-tree-local-test';
 const template = readFileSync(new URL('../src/service-worker.template.js', import.meta.url), 'utf8');
 const code = template.replace('__RELEASE__', JSON.stringify(release)).replace('__PRECACHE__', JSON.stringify(assets));
@@ -69,7 +69,7 @@ test('cached app and modules remain available without a network request', async 
 });
 test('API, external, queried and non-GET requests never enter the cache handler', async () => {
   const env = setup();
-  for (const path of ['/api/state', '/api/session', '/?secret=value', 'https://other.test/assets/app.js']) {
+  for (const path of ['/api/state', '/api/session', '/index.html', '/?secret=value', 'https://other.test/assets/app.js']) {
     assert.equal(await env.request(path), undefined);
   }
   assert.equal(await env.request('/', { method: 'POST', body: 'private data' }), undefined);

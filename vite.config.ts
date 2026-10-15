@@ -27,7 +27,10 @@ export default defineConfig({
         digest.update(relative(directory, file));
         digest.update(await readFile(file));
       }
-      const assets = ["/", ...list.map(path => "/" + relative(directory, path).replaceAll("\\", "/"))];
+      // Static hosts commonly redirect /index.html to /. Cache its canonical URL
+      // once; keeping the redirect alias would make strict offline installation fail.
+      const assets = ["/", ...list.map(path => "/" + relative(directory, path).replaceAll("\\", "/"))
+        .filter(path => path !== "/index.html")];
       const worker = template.replace("__RELEASE__", JSON.stringify("policy-tree-local-" + digest.digest("hex").slice(0, 16)))
         .replace("__PRECACHE__", JSON.stringify(assets));
       await writeFile(join(directory, "sw.js"), worker);
