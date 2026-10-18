@@ -25,7 +25,7 @@ export interface LocalStoreSnapshot {
 
 interface StoredState {
   format: "policy-tree-local";
-  version: 1;
+  version: 1 | 2;
   revision: number;
   savedAt: string;
   state: PolicyState;
@@ -52,7 +52,7 @@ function decode(raw: string): StoredState {
     const entry = value as StoredState;
     if (
       entry.format !== "policy-tree-local" ||
-      entry.version !== 1 ||
+      (entry.version !== 1 && entry.version !== 2) ||
       !Number.isSafeInteger(entry.revision) ||
       entry.revision < 0 ||
       typeof entry.savedAt !== "string" ||
@@ -157,7 +157,9 @@ export class LocalPolicyStore {
         const state = applyOperation(base, operation, at);
         const next: StoredState = {
           format: "policy-tree-local",
-          version: 1,
+          // v0.3 clients only accept envelope 1. Rejecting envelope 2 prevents
+          // an old open tab from writing a snapshot that silently drops seats.
+          version: 2,
           revision: (stored?.revision ?? 0) + 1,
           savedAt: at,
           state,

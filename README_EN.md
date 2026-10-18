@@ -2,86 +2,125 @@
 
 [简体中文](README_CN.md) · [Product design](../design/v0.1/DESIGN_EN.md)
 
-This is a responsive PWA with no login. Policies and history stay in the current browser on your device. You can export and import JSON backups. The app does not upload policy data or require a cloud sync database, ChatGPT, QQ, or WeChat login.
+A personal PWA with no login and local storage. Policies and Sacred Seat records stay in the current browser, with offline use and JSON export/import. There is no cloud sync, account binding, focus timer, or system reminder.
 
-Published URL: [Open Policy Tree](https://willowkk.github.io/policy-tree-safari/).
+Published address: [Open Policy Tree](https://willowkk.github.io/policy-tree-safari/). Version 0.4 retains this address and adopts the approved HTML design.
 
-## Moving from the previous URL
+## Four Destinations
 
-Different origins have separate local storage. Export JSON from the old browser or Home Screen entry first. Open the new URL, add it to the Home Screen, then import the backup from the new entry. Check policies and history before using the new icon daily; the old icon continues to open the previous URL.
+Bottom navigation is **Today · tree icon · Settings · chair icon**. The tree opens My Tree; the chair opens Sacred Seats. Pages no longer have a top-left brand heading.
 
-Friends use independent data on their own devices and cannot see your policies. GitHub Pages hosting is free, but mainland China availability needs actual network testing and is not guaranteed across providers or regions.
+### Today
 
-## Use it on iPhone
+- Prepare or select a rule through Candidate Library in the top-right corner. Enter a name and free-text content; older Draft and Returned records remain accessible.
+- Choose one trial. After successfully practicing it, tap “I did it,” explicitly choose an Active parent or top-level position, and confirm activation.
+- Each local data space uses **midnight in Asia/Shanghai (Beijing time)**. Activate at most once per day; daily activation is optional. Top-level, child, and reactivated nodes all consume the allowance.
+- Changing trials, editing content, and preparing candidates do not consume it. Returning a policy on the activation day does not restore it.
+- There are no replenishment prompts or motivational slogans.
 
-1. Connect to the internet and open the published URL in Safari.
-2. Open Share and select “Add to Home Screen.” If “Open as Web App” is shown, enable it, then tap Add. See [Apple's instructions](https://support.apple.com/guide/iphone/iphea86e5236/ios).
-3. Open the Home Screen icon once while online so the app can prepare its offline cache.
-4. With the cache available, you can read, edit, activate policies, record violations, and reflect offline.
+### My Tree
 
-Add the app to the Home Screen before starting your main records. A Safari tab and the Home Screen app may have separate storage. If your existing records do not appear, export a backup from the original entry point and import it into the new one. Adding to the Home Screen is not a backup. It requires no Apple Developer Program membership or recurring seven-day signing renewal.
+- Actual parent-child connectors form a tree. Wide branches scroll horizontally.
+- A node shows only its name and a number: adherence days since its latest activation. **The activation date is 1, the next date is 2**, using Beijing calendar dates.
+- Click to expand details, click the same node again to collapse, or another to switch.
+- Details contain only Content, Activated At, Maintained, and Changes. Creation time is not shown.
+- Active rule content can be edited. Record edit time and before/after text without changing activation time, adherence days, or the parent.
+- Preview a violation's effects before confirming. Return only that node and its Active descendants; retain ancestors, siblings, and history. Revise and restore it to Ready for another attempt. Reactivation starts at 1 again.
 
-On Mac, use a browser, or add the website to the Dock in a supported Safari version. See [Apple's Mac instructions](https://support.apple.com/104996). Modern Windows browsers can open the same responsive app. Each device stores its own data.
+Not opening the app, not recording a result, or not triggering a rule does not automatically fail it. Adherence days are not a daily check-in count or independently verified behavior.
 
-## Daily workflow
+### Sacred Seats
 
-- Prepare policies when convenient with a name and a free-text rule. Save incomplete ideas as drafts.
-- Choose one Ready policy as Today's Trial. After practicing it successfully, confirm its parent and activate it.
-- Each local data space uses **midnight in Asia/Shanghai (Beijing time)** as the daily boundary. Activate at most one policy per day; daily activation is optional. Returning a policy on its activation day does not restore the allowance.
-- An in-app replenishment prompt appears below 5 Ready policies. Drafts, Today's Trial, and Returned policies do not count as Ready.
-- Preview the affected branch before recording a violation. The violated node and its Active descendants return to the library; ancestors and siblings remain Active, and history is retained.
-- Write a free-text reflection, revise a Returned policy, and prepare it for another attempt.
+This page manually records results that already happened outside the app. **There is no countdown, Start/reservation workflow, or automatic outcome.**
 
-A successful local save makes an activation formal, including offline. There is no cloud confirmation step. Failed saves show an error and must not be presented as completed operations. There are no scheduled reminders, calendar reminders, or system push notifications.
+- Choose Add and enter a name and rule. Manage multiple independent seats.
+- A collapsed card shows only its name and current main-chain success count. Click to expand rules, actions, precedents, and history; click again to collapse.
+- Select Main or Reservation, record a completion, optionally describe it, and save to add 1 to that chain.
+- Record Situation lets you allow a case and save a precedent, or confirm a violation. A violation resets only the selected chain in this seat; the other chain and other seats are unaffected.
+- A condition already allowed in the current generation cannot become a violation in that generation. Allowing a situation does not automatically count as completing a task. Breaking a chain retains history and archives old-generation precedents; the new chain starts at 0.
+- The main chain tracks task completion. The reservation chain tracks starting as promised. Inactivity, not making a reservation, or returning after several days does not automatically break either chain.
+- Editing the seat name or rule records before/after content and does not reset counts.
+- You can switch seats while recording a situation or editing. Each seat retains its own text and selected chain within the current page. A pending violation confirmation does not transfer between seats. Drafts are not saved records; preserving unsubmitted drafts across reload is not guaranteed.
 
-## Export and restore
+Seats and policies run separately. Failure on one side does not automatically affect the other.
 
-Choose “Export backup” in Settings and keep the generated JSON file. On iPhone, use “Save to Files” if the system share sheet appears. If the file downloads, locate it in Safari's download list or the Files app. Export after substantial edits, before changing devices, and before clearing website data.
+### Settings
 
-To restore or transfer records, open “Settings → Import backup” in the destination browser or app, choose the JSON file, and confirm.
+Only two routine actions: **Export JSON and Import JSON**. Relevant save errors and update notices remain available.
 
-Import merges records by ID:
+## Save, Export, and Restore
 
-- New policies and history events are added.
-- Policies and events whose IDs already exist retain their current local contents. Older backup versions do not overwrite them.
-- Incompatible formats, tree relationships, or same-day activation histories cause the entire import to be rejected while current data remains intact. Read the error before retrying.
-- Compatible snapshots from the earlier cloud PWA can migrate saved records. Old queued operations are not replayed, pending activations do not become Active automatically, and reminder settings are not migrated.
+An action succeeds only after its local write succeeds, including offline. Failed writes show an error and are not completed operations.
 
-Import supports recovery and adding records; **it is not two-way synchronization**. Editing a policy on a computer and importing it back into an iPhone does not replace that iPhone's existing policy with the same ID. Keep one primary place for daily use. Importing a full backup into an empty data space is the clearest way to restore on a new device.
+Settings → Export JSON includes policies, relationships, activation/return history, content changes, reflections, all seats, both chains, precedents, and seat records. On iPhone, select Save to Files in the share sheet, or locate a downloaded file in Safari or Files. Canceling sharing is not a completed backup.
 
-Backup files contain the full text of policies and reflections. Store them somewhere you trust. Saving them to iCloud Drive or another service is your choice; the app does not upload them automatically.
+Settings → Import JSON accepts JSON files only, validates them, requests confirmation, and merges safely:
 
-## Local storage boundaries
+| Situation | Behavior |
+| --- | --- |
+| New policy, event, or seat IDs | Add to local records |
+| Existing IDs | Keep current local versions |
+| Contradictory relationships, same-day activations, or chain data after merge | Reject the entire import without partial writes |
+| Invalid/oversized file or failed write | Show an error and retain saved data |
+| Older production backup without seats | Read compatibly without adding demo seats |
+| Compatible old cloud snapshot | Migrate saved data; do not replay queued operations, confirm pending activations, or restore reminders |
+| HTML prototype `policy-tree-preview` v1 | Convert strictly, then validate and merge under production rules instead of replacing everything |
 
-Ordinary tabs in the same browser, at the same origin and within the same browser profile, share local records. Different devices, browsers, private windows, URLs, and Home Screen apps may have separate data spaces and do not synchronize. The daily activation allowance applies within one local data space; it cannot verify independent copies across devices.
+Import is not two-way synchronization. Editing a rule on a computer and importing it to a phone does not overwrite the phone's existing same-ID policy. A complete import into an empty space is the preferred replacement-device flow. Prototype backups with multiple activations on one day or invalid records are rejected in full. The app never changes dates or drops nodes to bypass the rules; keep the original file. Import and export files are limited to 20 MiB.
 
-The first visit and an unprepared offline cache require connectivity. If website data is cleared or reclaimed, there is no server copy to restore. Recovery requires a backup you previously exported. See [WebKit's storage policy](https://webkit.org/blog/14403/updates-to-storage-policy/).
+Export after substantial edits, before changing devices, and before clearing website data. The file contains private original text; keep it in a trusted place. The app never uploads the backup to iCloud or another service automatically.
 
-The public URL serves the application. Someone else opening it sees records from their own browser, not yours. Loading files and checking for updates still request program assets from the host; runtime requests do not send policy contents.
+## Use on iPhone
 
-The app charges no membership fee and has no paid cloud sync dependency. Static hosting policies and availability can change, so permanent free hosting and permanent browser storage are not guaranteed.
+1. Connect to the internet and open the [published address](https://willowkk.github.io/policy-tree-safari/) in Safari.
+2. Choose Share → Add to Home Screen. If Open as Web App is shown, keep it enabled, then Add. See [Apple's instructions](https://support.apple.com/guide/iphone/iphea86e5236/ios).
+3. Open the Home Screen icon once while online so the offline cache can become ready.
+4. Core record functions can be used offline when the cache is available.
 
-## Updates
+Choose a primary entry point for long-term use. A Safari tab and a Home Screen app may have separate storage. If data is missing after installation, export from the original entry and import into the new one. Installation is not a backup and needs no Apple developer membership or seven-day renewal.
 
-When an update is available, choose “Update now” or “Later.” Save your current edits first. Updates do not forcibly reload a page while you are writing. Application caches and personal records are handled separately; exporting a backup before updating remains useful.
+Modern Mac and Windows browsers can use the same website; devices store separate records without automatic sync.
 
-## Run and build locally
+## Upgrade and URL Migration
+
+Existing production records at this address are read compatibly rather than reset for the new design. Reading old data does not itself write; the next successful save upgrades the local storage envelope. Existing creation timestamps may remain as compatibility fields without display; new nodes do not collect a separate creation time.
+
+The local envelope advances to version 2, and the new client can read versions 1 and 2. Old-version tabs still open must refresh before editing upgraded data; they cannot overwrite the new seat records. Business JSON continues to use compatible `schemaVersion: 1`, which is separate from the local envelope version.
+
+Different URLs use separate local storage. To move from the old ChatGPT-hosted site, export from its original browser or Home Screen entry, import at this address, and check the tree and history. Old Home Screen icons retain the previous URL and need to be replaced.
+
+## Local Storage and Offline Limits
+
+Ordinary same-origin tabs can share records. Different devices, browsers, private windows, origins, and Home Screen entries cannot be assumed to share them. Friends opening the same URL use their own spaces and cannot see your rules.
+
+Static hosting serves the application; runtime does not send policy or seat text. First access and an unprepared cache require a network connection. Application caching and personal-data storage are separate. Clearing or reclaiming browser storage requires a previously exported JSON for recovery; there is no server copy. See [WebKit's storage explanation](https://webkit.org/blog/14403/updates-to-storage-policy/).
+
+Users choose when to apply updates and should save forms before refreshing. Updates retain records; exporting beforehand remains sensible.
+
+The app charges no membership fee and has no paid cloud-sync dependency. Hosting and network availability still depend on the environment. The user confirmed access to the current address; this does not guarantee every region or provider.
+
+## Development and Validation
 
 From `safari/`:
 
 ```sh
-npm install
+npm ci
 npm run dev
-```
-
-Other commands:
-
-```sh
 npm test
 npm run build
 npm run preview
 ```
 
-The production build creates static files in `dist/`, suitable for HTTPS static hosting. Offline caching uses a Service Worker. The development server does not represent production offline behavior; verify the built preview and actual HTTPS deployment. Opening `dist/index.html` directly from the file system is not the installation path.
+Build includes TypeScript checks and outputs static files to `dist/`. The default deploys at a domain root. For the GitHub Pages project path:
 
-This directory is the current main version. `../web/` and `../wechat/` retain historical implementations. 56 automated tests pass. Creation, activation, reload and offline startup after stopping the server have been checked in a desktop browser. System sharing and Home Screen installation have not yet been tested on a physical iPhone.
+```sh
+POLICY_TREE_BASE=/policy-tree-safari/ npm run build
+```
+
+Validate Service Worker behavior against a production build and HTTPS. Do not double-click `dist/index.html` as an installation entry. GitHub Actions keeps publishing to the original address.
+
+Local validation on October 18, 2026: **79/79 tests passed**, as did TypeScript checking and the GitHub project-path production build. The desktop in-app browser at `390 × 844` verified selection, explicit parenting, day-1 counting, content changes, node collapse, per-seat drafts/precedents, and independent chains. A downloaded JSON restored 5 policies and 2 seats into an empty local entry. Reload worked after stopping the server; an offline record survived another reload, and a Service Worker update retained existing data.
+
+These are local results, not an online release record. Physical iPhone Home Screen installation, system sharing, and file recovery have not been device-tested; a simulated viewport is not a substitute.
+
+This directory is the current implementation; `../web/` and `../wechat/` are historical versions.

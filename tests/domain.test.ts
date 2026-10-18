@@ -7,6 +7,7 @@ import {
   emptyState,
   getTodayActivation,
   PolicyError,
+  policyDays,
   validateState,
 } from "../src/lib/policy/domain";
 import type { Operation, PolicyState } from "../src/lib/policy/types";
@@ -62,11 +63,14 @@ test("new state is empty; stock is not seeded or capped at five", () => {
   let state = emptyState("en");
   assert.equal(state.settings.locale, "en");
   assert.equal(state.policies.length, 0);
+  assert.equal(state.seats.length, 0);
   for (let index = 0; index < 7; index++) state = save(state, `ready-${index}`);
   assert.equal(
     state.policies.filter((policy) => policy.status === "ready").length,
     7,
   );
+  assert.equal(state.policies[0].createdAt, undefined);
+  assert.equal(state.events.length, 0);
 });
 
 test("draft auto-save supports partial text; ready requires name and rule", () => {
@@ -81,7 +85,7 @@ test("draft auto-save supports partial text; ready requires name and rule", () =
     () => applyOperation(state, operation, D1),
     errorCode("RULE_REQUIRED"),
   );
-  assert.equal(state.events.length, 1);
+  assert.equal(state.events.length, 0);
   assert.equal(state.appliedOperationIds.includes(operation.id), false);
 });
 
@@ -243,7 +247,7 @@ test("restoring a returned node clears actual parent and retains suggested paren
   );
 });
 
-test("active rule/parent are immutable, while reflections append history", () => {
+test("general save cannot replace an active node, while reflections append history", () => {
   const state = activate(save(emptyState(), "a"), "a", D1);
   assert.throws(
     () => applyOperation(state, op("save", "a", { rule: "Changed" }), D1),
@@ -370,6 +374,7 @@ test("a backup of an unconfirmed trial preserves the trial without consuming a d
 
 test("deleteDraft retains history and rejects deletion of ready policies", () => {
   let state = save(save(emptyState(), "draft", { status: "draft" }), "ready");
+  state = save(state, "draft", { status: "draft", rule: "Edited draft" });
   assert.throws(
     () => applyOperation(state, op("deleteDraft", "ready"), D1),
     errorCode("NOT_DRAFT"),
@@ -402,7 +407,7 @@ test("invalid snapshots, operations, and oversized values are rejected", () => {
 });
 
 test("backup enum fields reject arrays and objects instead of coercing them into valid words", () => {
-  const state = save(emptyState(), "a");
+  const state = applyOperation(save(emptyState(), "a"), op("reflect", "a", { note: "Reflection" }), D1);
   const cases: Array<{
     word: string;
     snapshot: (value: unknown) => unknown;
@@ -419,6 +424,56 @@ test("backup enum fields reject arrays and objects instead of coercing them into
     }
   }
   assert.deepEqual(validateState(state), state);
+});
+
+test("editing an active rule retains activation, parent, daily use, and version history", () => {
+  let state = activate(save(save(emptyState(), "root"), "child"), "root", D1);
+  state = activate(state, "child", D2, "root");
+  const before = state.policies.find(item => item.id === "child")!;
+  const edited = applyOperation(state, op("editRule", "child", { rule: "New concrete rule", expectedRule: before.rule }), D3);
+  const child = edited.policies.find(item => item.id === "child")!;
+  assert.equal(child.rule, "New concrete rule");
+  assert.equal(child.activatedAt, before.activatedAt);
+  assert.equal(child.parentId, "root");
+  assert.equal(child.status, "active");
+  assert.equal(getTodayActivation(edited, D2)?.policyId, "child");
+  assert.equal(getTodayActivation(edited, D3), undefined);
+  assert.deepEqual(edited.events.at(-1), {
+    id: `${edited.appliedOperationIds.at(-1)}:edited:child`,
+    operationId: edited.appliedOperationIds.at(-1), type: "edited", policyId: "child", policyName: "child", at: D3, note: "",
+    before: before.rule, after: "New concrete rule",
+  });
+  assert.equal(state.policies.find(item => item.id === "child")!.rule, before.rule);
+  assert.throws(() => applyOperation(edited, op("editRule", "child", { rule: "Overwrite", expectedRule: before.rule }), D3), errorCode("EDIT_CONFLICT"));
+  assert.throws(() => applyOperation(edited, op("editRule", "child", { rule: "   " }), D3), errorCode("RULE_REQUIRED"));
+  const unchanged = applyOperation(edited, op("editRule", "child", { rule: child.rule }), D3);
+  assert.equal(unchanged.events.length, edited.events.length);
+});
+
+test("policy days start at one, follow Shanghai midnight, and restart on reactivation", () => {
+  const policy = { status: "active" as const, activatedAt: "2026-10-15T15:59:59Z" };
+  assert.equal(policyDays(policy, "2026-10-15T15:59:59Z"), 1);
+  assert.equal(policyDays(policy, "2026-10-15T16:00:00Z"), 2);
+  assert.equal(policyDays(policy, "2026-10-17T15:00:00Z"), 3);
+  assert.equal(policyDays({ ...policy, status: "returned" }, D2), 0);
+  let state = activate(save(emptyState(), "a"), "a", D1);
+  state = applyOperation(state, op("violate", "a"), D2);
+  state = applyOperation(state, op("restore", "a"), D2);
+  state = activate(state, "a", D3);
+  assert.equal(policyDays(state.policies[0], D3), 1);
+  assert.equal(policyDays(state.policies[0], D4), 2);
+});
+
+test("schema version one reads legacy fields without inventing seats or creation dates", () => {
+  const state = save(emptyState(), "a");
+  const legacy = structuredClone(state) as unknown as Record<string, unknown>;
+  delete legacy.seats;
+  (legacy.policies as Array<Record<string, unknown>>)[0].createdAt = D1;
+  const migrated = validateState(legacy);
+  assert.deepEqual(migrated.seats, []);
+  assert.equal(migrated.policies[0].createdAt, D1);
+  const current = validateState(state);
+  assert.equal("createdAt" in current.policies[0], false);
 });
 
 test("a non-string operation type is rejected without recording a successful no-op", () => {

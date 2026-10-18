@@ -2,13 +2,13 @@
   "id": "/",
   "name": "国策树 · Policy Tree",
   "short_name": "国策树",
-  "description": "免登录的个人国策树，数据只保存在当前设备。",
+  "description": "免登录的国策树与神圣座位记录工具，本机保存，支持 JSON 备份。",
   "lang": "zh-CN",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f7f8f2",
-  "theme_color": "#214e38",
+  "background_color": "#f5f5f7",
+  "theme_color": "#f5f5f7",
   "icons": [
     {
       "src": "/icon-192.png",

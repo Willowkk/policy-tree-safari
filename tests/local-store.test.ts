@@ -210,3 +210,85 @@ test("a rejected domain operation leaves both persisted and displayed data uncha
   assert.equal(storage.values.get(LOCAL_STORAGE_KEY), raw);
   assert.match(store.getSnapshot().error ?? "", /Choose and try/);
 });
+
+test("the released v0.3 local envelope loads without a destructive migration write", async () => {
+  const storage = new MemoryStorage();
+  const oldState = {
+    schemaVersion: 1,
+    policies: [{
+      id: "legacy-active", name: "饭后洗碗", rule: "饭后十五分钟内洗碗", status: "active",
+      parentId: null, suggestedParentId: null, reminderTime: "", createdAt: DAY_ONE,
+      updatedAt: DAY_ONE, activatedAt: DAY_ONE,
+    }],
+    events: [{
+      id: "legacy-activation", operationId: "legacy-op", type: "activated", policyId: "legacy-active",
+      policyName: "饭后洗碗", at: DAY_ONE, note: "", day: "2026-10-15", parentId: null,
+    }],
+    settings: { timezone: "Asia/Shanghai", locale: "zh", inventoryReminders: true },
+    appliedOperationIds: ["legacy-op"],
+  };
+  const raw = JSON.stringify({ format: "policy-tree-local", version: 1, revision: 7, savedAt: DAY_ONE, state: oldState });
+  storage.values.set(LOCAL_STORAGE_KEY, raw);
+  const { store } = setup(storage);
+  assert.equal(store.getSnapshot().storageError, null);
+  assert.equal(store.getSnapshot().state.policies[0].activatedAt, DAY_ONE);
+  assert.deepEqual(store.getSnapshot().state.events, oldState.events);
+  assert.deepEqual(store.getSnapshot().state.seats, []);
+  assert.equal(storage.values.get(LOCAL_STORAGE_KEY), raw);
+  assert.equal(storage.writes, 0);
+  assert.equal(await store.submit("seatSave", "new-seat", { name: "阅读角", rule: "只读纸质书" }), true);
+  assert.equal(JSON.parse(storage.values.get(LOCAL_STORAGE_KEY)!).version, 2);
+  const reloaded = setup(storage).store.getSnapshot().state;
+  assert.equal(reloaded.policies[0].rule, oldState.policies[0].rule);
+  assert.equal(reloaded.events[0].id, "legacy-activation");
+  assert.equal(reloaded.seats[0].name, "阅读角");
+});
+
+test("manual seat records and rule edits persist alongside the original tree", async () => {
+  const { store, storage } = setup();
+  await save(store, "policy");
+  await activate(store, "policy");
+  assert.equal(await store.submit("editRule", "policy", { rule: "An adjusted rule", expectedRule: "Rule policy" }), true);
+  for (const id of ["reading", "yoga"]) {
+    assert.equal(await store.submit("seatSave", id, { name: id, rule: "A distinct rule" }), true);
+  }
+  assert.equal(await store.submit("seatComplete", "reading", { chain: "main", task: "Read" }), true);
+  assert.equal(await store.submit("seatComplete", "reading", { chain: "aux", task: "Started as agreed" }), true);
+  assert.equal(await store.submit("seatComplete", "yoga", { chain: "main", task: "Practiced" }), true);
+  assert.equal(await store.submit("seatFail", "reading", { chain: "aux", condition: "Forgot the appointment" }), true);
+  const state = setup(storage).store.getSnapshot().state;
+  assert.equal(state.policies[0].rule, "An adjusted rule");
+  assert.equal(state.policies[0].activatedAt, DAY_ONE);
+  assert.equal(state.events.filter(event => event.type === "activated").length, 1);
+  const reading = state.seats.find(seat => seat.id === "reading")!;
+  const yoga = state.seats.find(seat => seat.id === "yoga")!;
+  assert.equal(reading.main.count, 1);
+  assert.equal(reading.aux.count, 0);
+  assert.equal(yoga.main.count, 1);
+  assert.equal(reading.records.length, 3);
+  assert.equal(yoga.records.length, 1);
+});
+
+test("seat write failure retains the saved result and concurrent tabs reread the latest count", async () => {
+  const storage = new MemoryStorage(), locks = new SerialLocks();
+  const a = setup(storage, locks).store;
+  assert.equal(await a.submit("seatSave", "seat", { name: "书桌", rule: "专注完成任务" }), true);
+  const b = setup(storage, locks).store;
+  const results = await Promise.all([
+    a.submit("seatComplete", "seat", { chain: "main", task: "First" }),
+    b.submit("seatComplete", "seat", { chain: "main", task: "Second" }),
+  ]);
+  assert.deepEqual(results, [true, true]);
+  a.reload();
+  const before = a.getSnapshot().state;
+  assert.equal(before.seats[0].main.count, 2);
+  const raw = storage.values.get(LOCAL_STORAGE_KEY);
+  storage.failWrite = true;
+  assert.equal(await a.submit("seatComplete", "seat", { chain: "main", task: "Not saved" }), false);
+  assert.equal(a.getSnapshot().state, before);
+  assert.equal(storage.values.get(LOCAL_STORAGE_KEY), raw);
+  assert.equal(a.getSnapshot().storageError, "write-failed");
+  storage.failWrite = false;
+  assert.equal(await a.submit("seatComplete", "seat", { chain: "main", task: "Saved after retry" }), true);
+  assert.equal(setup(storage).store.getSnapshot().state.seats[0].main.count, 3);
+});

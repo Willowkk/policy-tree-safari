@@ -5,16 +5,9 @@ import type {
   Policy,
   PolicyState,
 } from "./types";
-
-export class PolicyError extends Error {
-  constructor(
-    public code: string,
-    message: string,
-  ) {
-    super(message);
-    this.name = "PolicyError";
-  }
-}
+import { PolicyError } from "./errors";
+import { applySeatOperation, validateSacredSeats } from "./sacred-seats";
+export { PolicyError } from "./errors";
 
 const statuses = new Set(["draft", "ready", "trial", "active", "returned"]);
 const eventTypes = new Set([
@@ -38,6 +31,11 @@ const operationTypes = new Set([
   "settings",
   "import",
   "deleteDraft",
+  "editRule",
+  "seatSave",
+  "seatComplete",
+  "seatAllow",
+  "seatFail",
 ]);
 
 function fail(code: string, message: string): never {
@@ -95,7 +93,8 @@ export function emptyState(locale: Locale = "zh"): PolicyState {
     schemaVersion: 1,
     policies: [],
     events: [],
-    settings: { timezone: "Asia/Shanghai", locale, inventoryReminders: true },
+    seats: [],
+    settings: { timezone: "Asia/Shanghai", locale, inventoryReminders: false },
     appliedOperationIds: [],
   };
 }
@@ -130,6 +129,18 @@ export function descendants(state: PolicyState, id: string): Policy[] {
     }
   }
   return result;
+}
+
+/** Consecutive active calendar days, inclusive of the latest activation day. */
+export function policyDays(
+  policy: Pick<Policy, "status" | "activatedAt">,
+  now = new Date().toISOString(),
+  zone = "Asia/Shanghai",
+): number {
+  if (policy.status !== "active" || !policy.activatedAt) return 0;
+  const from = Date.parse(`${dayKey(policy.activatedAt, zone)}T00:00:00Z`);
+  const to = Date.parse(`${dayKey(now, zone)}T00:00:00Z`);
+  return Math.max(1, Math.round((to - from) / 86_400_000) + 1);
 }
 
 export function getTodayActivation(
@@ -179,9 +190,10 @@ export function validateState(input: unknown): PolicyState {
         parentId: parentId(raw.parentId, "parentId"),
         suggestedParentId: parentId(raw.suggestedParentId, "suggestedParentId"),
         reminderTime: reminderTime(raw.reminderTime),
-        createdAt: timestamp(raw.createdAt, "createdAt"),
         updatedAt: timestamp(raw.updatedAt, "updatedAt"),
       };
+      if (raw.createdAt !== undefined)
+        policy.createdAt = timestamp(raw.createdAt, "createdAt");
       if (raw.activatedAt !== undefined)
         policy.activatedAt = timestamp(raw.activatedAt, "activatedAt");
       if (raw.trialDate !== undefined) {
@@ -221,8 +233,11 @@ export function validateState(input: unknown): PolicyState {
       if (raw.parentId !== undefined)
         event.parentId = parentId(raw.parentId, "event.parentId");
       if (raw.day !== undefined) event.day = string(raw.day, "event.day", 10);
+      if (raw.before !== undefined) event.before = string(raw.before, "event.before");
+      if (raw.after !== undefined) event.after = string(raw.after, "event.after");
       return event;
     }),
+    seats: validateSacredSeats(input.seats),
     settings: {
       timezone: timezone(settings.timezone),
       locale: settings.locale as Locale,
@@ -391,13 +406,31 @@ export function applyOperation(
           payload.reminderTime === undefined
             ? (existing?.reminderTime ?? "")
             : reminderTime(payload.reminderTime),
-        createdAt: existing?.createdAt ?? at,
         updatedAt: at,
       };
+      if (existing?.createdAt !== undefined) item.createdAt = existing.createdAt;
       if (status === "ready") readyFields(item);
       if (existing) state.policies[state.policies.indexOf(existing)] = item;
       else state.policies.push(item);
-      event(existing ? "edited" : "created", item);
+      // Creation time is intentionally not recorded for new policies. Legacy
+      // created events remain readable, while later edits still retain history.
+      if (existing) event("edited", item, "", existing.rule !== item.rule
+        ? { before: existing.rule, after: item.rule }
+        : {});
+      break;
+    }
+    case "editRule": {
+      const item = requirePolicy();
+      if (payload.expectedRule !== undefined && string(payload.expectedRule, "expectedRule") !== item.rule)
+        fail("EDIT_CONFLICT", "This rule changed in another tab. Reopen it before editing.");
+      const rule = string(payload.rule, "rule").trim();
+      if (!rule) fail("RULE_REQUIRED", "Write a rule before saving it.");
+      if (rule !== item.rule) {
+        const before = item.rule;
+        item.rule = rule;
+        item.updatedAt = at;
+        event("edited", item, "", { before, after: rule });
+      }
       break;
     }
     case "choose": {
@@ -551,6 +584,8 @@ export function applyOperation(
       state.events.push(
         ...incoming.events.filter((item) => !existingEvents.has(item.id)),
       );
+      const existingSeats = new Set(state.seats.map(item => item.id));
+      state.seats.push(...incoming.seats.filter(item => !existingSeats.has(item.id)));
       state.appliedOperationIds = [
         ...new Set([
           ...state.appliedOperationIds,
@@ -574,6 +609,13 @@ export function applyOperation(
           "This draft is referenced by another policy.",
         );
       state.policies = state.policies.filter((other) => other.id !== item.id);
+      break;
+    }
+    case "seatSave":
+    case "seatComplete":
+    case "seatAllow":
+    case "seatFail": {
+      applySeatOperation(state.seats, op, at);
       break;
     }
   }
