@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { dayKey, descendants, getTodayActivation, policyDays, applyOperation } from "./lib/policy/domain";
 import { currentSeatCases } from "./lib/policy/sacred-seats";
+import { hasMeaningfulPolicyEdit, visiblePolicyHistory } from "./lib/policy/history-visibility";
 import { usePolicyStore } from "./lib/policy/use-policy-store";
 import { shareOrDownloadBackup } from "./share-backup";
 import { checkBackupSize, parseBackup, serializeBackup } from "./lib/policy/backup";
@@ -113,6 +114,7 @@ export default function PolicyApp() {
   const trialExpired = trial && trial.trialDate !== today;
   const selectedPolicy = active.find(p => p.id === selectedPolicyId);
   const selectedSeat = state.seats.find(s => s.id === selectedSeatId);
+  const history = visiblePolicyHistory(state.events);
   const format = (at: string) => fmtDate(at, locale, zone);
 
   useEffect(() => {
@@ -246,7 +248,7 @@ export default function PolicyApp() {
           {violation?.id === selectedPolicy.id && <form className="violation-form" onSubmit={async event => { event.preventDefault(); if (await act("violate", selectedPolicy.id, { note: violation.note }, t("已记录违反", "Violation recorded"))) { setViolation(null); setSelectedPolicyId(null); } }}><p>{t("以下节点会退回候选流程，需要重新点亮：", "These policies will be returned and need to be activated again:")}</p><ul className="affected-list">{[selectedPolicy, ...descendants(state, selectedPolicy.id).filter(p => p.status === "active")].map(policy => <li key={policy.id}>{policy.name}</li>)}</ul><label htmlFor="violation-note">{t("情况（选填）", "Note (optional)")}</label><textarea id="violation-note" maxLength={20000} value={violation.note} onChange={event => setViolation({ ...violation, note: event.target.value })} /><div className="actions"><button className="primary danger-button" disabled={busy}>{t("确认退回", "Confirm return")}</button><button type="button" className="text-button" onClick={() => setViolation(null)}>{t("取消", "Cancel")}</button></div></form>}
           {reflection?.id === selectedPolicy.id && <ReflectionForm value={reflection.note} onChange={note => setReflection({ id: selectedPolicy.id, note })} onCancel={() => setReflection(null)} onSave={async event => { event.preventDefault(); if (await act("reflect", selectedPolicy.id, { note: reflection.note })) setReflection(null); }} busy={busy} t={t} />}
         </section>}
-        {!!state.events.length && <details className="history-disclosure"><summary>{t("记录", "Records")}</summary><ul className="record-list">{[...state.events].reverse().map(event => <li key={event.id}><time dateTime={event.at}>{format(event.at)}</time><strong>{event.policyName} · {eventLabel(event, t)}</strong>{event.note && <p>{event.note}</p>}{(event.before !== undefined || event.after !== undefined) && <VersionChange before={event.before} after={event.after} t={t} />}</li>)}</ul></details>}
+        {!!history.length && <details className="history-disclosure"><summary>{t("记录", "Records")}</summary><ul className="record-list">{[...history].reverse().map(event => <li key={event.id}><time dateTime={event.at}>{format(event.at)}</time><strong>{event.policyName} · {eventLabel(event, t)}</strong>{event.note && <p>{event.note}</p>}{(event.before !== undefined || event.after !== undefined) && <VersionChange before={event.before} after={event.after} t={t} />}</li>)}</ul></details>}
       </section>}
 
       {page === "settings" && <section className="simple-page" aria-labelledby="settings-title"><h1 id="settings-title">{t("设置", "Settings")}</h1><div className="settings-list">
@@ -300,11 +302,13 @@ function TreeNode({ policy, active, selectedId, onSelect, now, zone, t }: { poli
   return <li><button className="tree-node" aria-pressed={selectedId === policy.id} aria-expanded={selectedId === policy.id} aria-label={t(`${policy.name}，已坚持 ${days} 天`, `${policy.name}, kept for ${days} days`)} onClick={() => onSelect(policy.id)}><span>{policy.name}</span><span className="node-days" aria-hidden="true">{days}</span></button>{!!children.length && <ul>{children.map(child => <TreeNode key={child.id} policy={child} active={active} selectedId={selectedId} onSelect={onSelect} now={now} zone={zone} t={t} />)}</ul>}</li>;
 }
 function VersionChange({ before, after, t }: { before?: string; after?: string; t: Text }) {
+  if ((before ?? "").trim() === (after ?? "").trim()) return null;
   return <>{before !== undefined && <div className="change-version"><span>{t("修改前", "Before")}</span><p>{before}</p></div>}{after !== undefined && <div className="change-version"><span>{t("修改后", "After")}</span><p>{after}</p></div>}</>;
 }
 function Changes({ events, format, t }: { events: HistoryEvent[]; format: (at: string) => string; t: Text }) {
-  if (!events.length) return <span className="muted">{t("暂无修改", "No changes yet")}</span>;
-  return <ul className="change-list">{[...events].reverse().map(event => <li key={event.id}><time dateTime={event.at}>{format(event.at)}</time>{event.before !== undefined || event.after !== undefined ? <VersionChange before={event.before} after={event.after} t={t} /> : <p className="muted">{event.note || t("历史修改未记录前后内容", "This older change has no before/after content")}</p>}</li>)}</ul>;
+  const changes = events.filter(hasMeaningfulPolicyEdit);
+  if (!changes.length) return <span className="muted">{t("暂无修改", "No changes yet")}</span>;
+  return <ul className="change-list">{[...changes].reverse().map(event => <li key={event.id}><time dateTime={event.at}>{format(event.at)}</time>{event.note.trim() && <p>{event.note}</p>}<VersionChange before={event.before} after={event.after} t={t} /></li>)}</ul>;
 }
 function ReflectionForm({ value, onChange, onCancel, onSave, busy, t }: { value: string; onChange: (value: string) => void; onCancel: () => void; onSave: (event: FormEvent) => void; busy: boolean; t: Text }) {
   return <form onSubmit={onSave}><label htmlFor="reflection-note">{t("复盘", "Reflection")}</label><textarea id="reflection-note" value={value} onChange={event => onChange(event.target.value)} maxLength={20000} required /><div className="actions"><button className="primary" disabled={busy || !value.trim()}>{t("保存", "Save")}</button><button type="button" className="text-button" onClick={onCancel}>{t("取消", "Cancel")}</button></div></form>;

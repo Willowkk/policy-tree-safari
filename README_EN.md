@@ -29,6 +29,13 @@ Bottom navigation is **Today · tree icon · Settings · chair icon**. The tree 
 
 Not opening the app, not recording a result, or not triggering a rule does not automatically fail it. Adherence days are not a daily check-in count or independently verified behavior.
 
+
+#### History Display Update (October 18, 2026)
+
+My Tree's Records shows activations, violations, dependent returns, reflections, and readable edits. Creation, selection, restoration to Ready, and import bookkeeping are hidden.
+
+Show an edit only if its trimmed note is nonempty, or its trimmed before/after content differs with at least one nonempty side. A node's Changes uses the same rule and shows “No changes yet” when none qualify. This changes display only: all raw events remain in local storage and JSON backups, with activation allowances and old-data compatibility unchanged. Sacred Seat history is unchanged.
+
 ### Sacred Seats
 
 This page manually records results that already happened outside the app. **There is no countdown, Start/reservation workflow, or automatic outcome.**
@@ -119,8 +126,10 @@ POLICY_TREE_BASE=/policy-tree-safari/ npm run build
 
 Validate Service Worker behavior against a production build and HTTPS. Do not double-click `dist/index.html` as an installation entry. GitHub Actions keeps publishing to the original address.
 
-Local validation on October 18, 2026: **79/79 tests passed**, as did TypeScript checking and the GitHub project-path production build. The desktop in-app browser at `390 × 844` verified selection, explicit parenting, day-1 counting, content changes, node collapse, per-seat drafts/precedents, and independent chains. A downloaded JSON restored 5 policies and 2 seats into an empty local entry. Reload worked after stopping the server; an offline record survived another reload, and a Service Worker update retained existing data.
+Local validation on October 18, 2026: **82/82 tests passed**, as did TypeScript checking and the GitHub project-path production build. The desktop in-app browser at `390 × 844` verified selection, explicit parenting, day-1 counting, content changes, node collapse, per-seat drafts/precedents, and independent chains. A downloaded JSON restored 5 policies and 2 seats into an empty local entry. Reload worked after stopping the server; an offline record survived another reload, and a Service Worker update retained existing data.
 
 These are local results, not an online release record. Physical iPhone Home Screen installation, system sharing, and file recovery have not been device-tested; a simulated viewport is not a substitute.
 
 This directory is the current implementation; `../web/` and `../wechat/` are historical versions.
+
+History refinement validation: the UI displayed activation, an actual content edit, and a reflection while hiding legacy operation noise. Node changes use the same filter. The JSON downloaded through the browser retained all 11 raw events while the UI displayed 3.
